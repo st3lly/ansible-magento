@@ -1,0 +1,7 @@
+- hosts: all
+  remote_user: ansible
+  become_user: root
+  become: True
+  gather_facts: True
+  roles:
+    - magento

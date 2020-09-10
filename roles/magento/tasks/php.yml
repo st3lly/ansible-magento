@@ -1,0 +1,65 @@
+- name: Install php and modules
+  yum: 
+    name: "{{ item }}"
+    state: present
+  loop:
+    - php
+    - php-fpm
+    - php-mbstring
+    - php-mcrypt
+    - php-mysql
+    - php-pdo
+    - php-xml
+    - php-pecl-memcache
+    - php-bcmath
+    - php-gd
+    - php-intl
+    - php-soap
+    - php-zip
+
+- name: Backup default php configuration
+  shell: /bin/cp /etc/php.ini /etc/php.default.ini creates=/etc/php.default.ini
+
+- name: Backup default php-fpm configuration
+  shell: /bin/cp /etc/php-fpm.d/www.conf /etc/php-fpm.d/www.conf.default creates=/etc/php-fpm.d/www.conf.default
+
+- name: Change php-fpm to listen on socket
+  ini_file: 
+    dest: /etc/php-fpm.d/www.conf
+    section: www
+    option: listen
+    value: /var/run/php-fpm/php-fpm.sock
+
+- name: Change php-fpm listen mode
+  ini_file:
+    dest: /etc/php-fpm.d/www.conf
+    section: www
+    option: listen.mode
+    value: 0666
+
+- name: Change php-fpm user
+  ini_file:
+    dest: /etc/php-fpm.d/www.conf
+    section: www
+    option: user
+    value: nginx
+
+- name: Change php-fpm group
+  ini_file:
+    dest: /etc/php-fpm.d/www.conf
+    section: www
+    option: group
+    value: nginx
+
+- name: Change php memory limit
+  ini_file:
+    dest: /etc/php.ini
+    section: Miscellaneous
+    option: memory_limit
+    value: 2G
+
+- name: Start php-fpm
+  service:
+    name: php-fpm
+    state: started
+    enabled: yes

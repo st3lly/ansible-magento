@@ -1,0 +1,15 @@
+- name: Allow http
+  firewalld:
+    zone: public
+    service: http
+    permanent: yes
+    immediate: yes
+    state: enabled
+
+- name: Allow https
+  firewalld:
+    zone: public
+    service: https
+    permanent: yes
+    immediate: yes
+    state: enabled

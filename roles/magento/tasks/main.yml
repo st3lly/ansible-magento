@@ -1,0 +1,23 @@
+# Repositories preparation
+- include: repositories.yml
+
+# NGINX installation
+- include: nginx.yml
+
+# Firewalld setup
+- include: firewalld.yml
+
+# MySQL installation
+- include: mysql.yml
+
+# Memcached installation
+- include: memcached.yml
+
+# PHP installation
+- include: php.yml
+
+# Composer installation
+- include: composer.yml
+
+# Magento installation
+- include: magento.yml

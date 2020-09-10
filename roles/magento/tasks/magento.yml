@@ -1,0 +1,161 @@
+- name: Download Magento
+  get_url:
+    url: https://github.com/magento/magento2/archive/{{ magento_version }}.tar.gz
+    dest: '{{ magento_root }}-{{ magento_version }}.tar.gz'
+
+- name: Create Magento directory
+  file:
+    path: '{{ magento_root }}'
+    state: directory
+    owner: nginx
+    group: nginx
+    mode: '0755'
+
+- name: Extract Magento files
+  unarchive:
+    src: '{{ magento_root }}-{{ magento_version }}.tar.gz'
+    dest: '{{ magento_root }}'
+    remote_src: yes
+    extra_opts: [--strip-components=1]
+
+- name: Create Magento database
+  mysql_db:
+    login_user: root
+    login_password: '{{ mysql_root_password }}'
+    name: '{{ magento_database_name }}'
+    state: present
+
+- name: Create Magento database user
+  mysql_user:
+    name: '{{ magento_database_user }}'
+    password: '{{ magento_database_password }}'
+    priv: '{{ magento_database_name }}.*:ALL' 
+    state: present
+
+- name: Copy nginx configuration file for Magento
+  template:
+    src: nginx.magento.config.j2
+    dest: /etc/nginx/conf.d/magento.conf
+    owner: root
+    group: root
+    mode: 0644
+  notify:
+    - Restart nginx
+
+- name: Copy composer auth.json file
+  template:
+    src: auth.json.j2
+    dest: '{{ magento_root }}/auth.json'
+    owner: nginx
+    group: nginx
+    mode: 775
+
+- name: Add Magento repository to composer
+  command:
+    chdir: '{{ magento_root }}'
+    cmd: composer config repositories.0 composer https://repo.magento.com
+
+- name: Install Magento dependencies
+  command:
+    chdir: '{{ magento_root }}'
+    cmd: composer install
+
+- name: Install Magento sample data
+  command:
+    chdir: '{{ magento_root }}'
+    cmd: ./bin/magento sampledata:deploy
+
+- name: Magento install command
+  command:
+    chdir: '{{ magento_root }}'
+    cmd: ./bin/magento setup:install --backend-frontname {{ magento_backend_frontname }} --db-host localhost --db-name {{ magento_database_name }} --db-user {{ magento_database_user }} --db-password {{ magento_database_password }} --db-prefix {{ magento_db_prefix }} --session-save {{ magento_session_save }} --base-url {{ magento_base_url }} --language {{ magento_language }} --timezone {{ magento_timezone }} --currency {{ magento_currency }} --use-rewrites {{ magento_use_rewrites }} --use-secure {{ magento_use_secure }} --base-url-secure {{ magento_base_url_secure }} --use-secure-admin {{ magento_use_secure_admin }} --admin-user {{ magento_admin_user }} --admin-password {{ magento_admin_password }} --admin-email {{ magento_admin_email }} --admin-firstname {{ magento_first_name }} --admin-lastname {{ magento_last_name }}
+
+- name: Magento cron
+  command:
+    chdir: '{{ magento_root }}'
+    cmd: ./bin/magento cron:run
+
+- name: Copy env.php
+  template:
+    src: env.php.j2
+    dest: '{{ magento_root }}/app/etc/env.php'
+    owner: nginx
+    group: nginx
+    mode: 775
+
+- name: Set ownership and permission for Magento directory
+  file:
+    path: '{{ magento_root }}'
+    state: directory
+    owner: nginx
+    group: nginx
+    mode: '0775'
+    recurse: yes
+
+#- name: Set ownership /var/lib/php/
+#  file:
+#    path: /var/lib/php/
+#    group: nginx
+#    recurse: yes
+
+- name: Install libselinux-python
+  yum:
+    name: libselinux-python
+    state: present
+
+- name: Install policycoreutils-python
+  yum:
+    name: policycoreutils-python
+    state: present
+
+- name: Allow nginx to modify files in <magento_root>
+  sefcontext:
+    target: '{{ magento_root }}(/.*)?'
+    setype: httpd_sys_rw_content_t
+    state: present
+    ignore_selinux_state: True
+
+- name: Allow nginx to modify files in <magento_root>/app/etc
+  sefcontext:
+    target: '{{ magento_root }}/app/etc(/.*)?'
+    setype: httpd_sys_rw_content_t
+    state: present
+    ignore_selinux_state: True
+
+- name: Allow nginx to modify files in <magento_root>/var
+  sefcontext:
+    target: '{{ magento_root }}/var(/.*)?'
+    setype: httpd_sys_rw_content_t
+    state: present
+    ignore_selinux_state: True
+
+- name: Allow nginx to modify files in <magento_root>/pub/media
+  sefcontext:
+    target: '{{ magento_root }}/pub/media(/.*)?'
+    setype: httpd_sys_rw_content_t
+    state: present
+    ignore_selinux_state: True
+
+- name: Allow nginx to modify files in <magento_root>/pub/static
+  sefcontext:
+    target: '{{ magento_root }}/pub/static(/.*)?'
+    setype: httpd_sys_rw_content_t
+    state: present
+    ignore_selinux_state: True
+
+- name: Allow nginx to modify files in <magento_root>/generated
+  sefcontext:
+    target: '{{ magento_root }}/generated(/.*)?'
+    setype: httpd_sys_rw_content_t
+    state: present
+    ignore_selinux_state: True
+
+- name: Set httpd_can_network_memcache flag on and keep it persistent
+  seboolean:
+    name: httpd_can_network_memcache
+    state: yes
+    persistent: yes
+
+- name: Apply new SELinux file context to filesystem
+  command: restorecon -R -v {{ magento_root }}
+  ignore_errors: True

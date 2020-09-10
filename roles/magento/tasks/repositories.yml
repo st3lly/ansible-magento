@@ -1,0 +1,30 @@
+- name: Install epel-release repository
+  yum:
+    name: epel-release
+    state: present
+
+- name: Install remi repo
+  yum:
+    name: '{{ remi_repo_url }}'
+    state: present
+
+- name: Import remi GPG key.
+  rpm_key:
+    key: '{{ remi_repo_gpg_key_url }}'
+    state: present
+
+- name: Enable remi-php71
+  ini_file:
+    dest: /etc/yum.repos.d/remi-php71.repo
+    section: "remi-php71"
+    option: enabled
+    value: 1
+
+- name: Install MariaDB repository
+  yum_repository:
+    name: mariadb
+    description: MariaDB
+    baseurl: '{{ mariadb_repo_url }}'
+    gpgkey: '{{ mariadb_repo_gpg_key_url }}'
+    gpgcheck: true
+    state: present
